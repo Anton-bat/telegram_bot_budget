@@ -1,0 +1,26 @@
+{
+    "expenses": [
+        {
+            "amount": 10.0,
+            "category": "Cinema",
+            "date": "2024-05-13#22:16"
+        }
+    ],
+    "incomes": [
+        {
+            "amount": 100.0,
+            "category": "Ehgf",
+            "date": "2024-05-13T18:31:03.075783"
+        },
+        {
+            "amount": 100.0,
+            "category": "Ehgf",
+            "date": "2024-05-13#18:58"
+        },
+        {
+            "amount": 11.0,
+            "category": "Apple",
+            "date": "2024-05-13#22:17"
+        }
+    ]
+}

@@ -46,7 +46,19 @@ class Incomes:
 async def start(update: Update, context: CallbackContext) -> None:
     logging.info("start pressed")
     await update.message.reply_text(
-        "Welcome to my Own_budget Bot!\n"
+        "Welcome to my own budget Bot!\n"
+        "Commands:\n"
+        "show_expense_category: /exp_list\n"
+        "add_expense: /add_expense <amount> <expense>\n" 
+        "add_income: /add_income <amount> <income>\n"
+        "list_expenses_category: /list_expenses\n" 
+        "list_income_category: /list_incomes\n" 
+        "filtered_expenses: /filtered_expenses <period: day, week, month, year> <category>\n" 
+        "filtered_incomes: /filtered_incomes <period: day, week, month, year> <category>\n" 
+        "stats_expenses: /stats_expenses\n"
+        "stats_incomes: /stats_incomes\n"
+        "remove_expence: /del_expense\n"
+        "remove_income: /del_income\n"
     )
 
 async def show_expense_category(update: Update, context: CallbackContext) -> None:
@@ -119,8 +131,13 @@ async def display_incomes(update: Update, context: CallbackContext, incomes: lis
     else:
         await update.message.reply_text("No incomes found.")
 
-async def filter_expenses(user_data: int, period: str = None, category: str = None) -> list:
+async def filter_expenses(user_id: int, period: str = None, category: str = None) -> list:
+    user_data = load_user_data(user_id)
     expenses = user_data.get("expenses", [])
+
+    for exp in expenses:
+        exp['date'] = datetime.fromisoformat(exp['date'].replace('#',' '))
+
     if period:
         today = datetime.now()
         if period == 'day':
@@ -145,20 +162,29 @@ async def filtered_expenses(update: Update, context: CallbackContext) -> None:
 
 async def stats_expenses(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
-    user_data = load_user_data(user_id)
-    filtered_expenses_res = filter_expenses(period, category)
-    total_expenses = sum([expense['amount'] for expense in filtered_expenses_res])
-    message = f"Total Expenses: {total_expenses}\n"
-    expense_categories = {}
-    for expense in filtered_expenses:
-        expense_categories[expense['category']] = expense_categories.get(expense['category'], 0) + expense['amount']
-    message += "Expense Categories:\n"
-    for category, amount in expense_categories.items():
-        message += f"{category}: {amount}\n"
-    await update.message.reply_text(message)
+    try:
+        filtered_expenses_res = await filter_expenses(user_id)
+        total_expenses = sum([expense['amount'] for expense in filtered_expenses_res])
+        message = f"Total Expenses: {total_expenses}\n"
+        expense_categories = {}
+        for expense in filtered_expenses_res:
+            expense_categories[expense['category']] = expense_categories.get(expense['category'], 0) + expense['amount']
+        message += "Expense Categories:\n"
+        for category, amount in expense_categories.items():
+            message += f"{category}: {amount}\n"
+        await update.message.reply_text(message)
+    except Exception as e:
+        logging.error(f"Error in stats_expenses: {e}")
+        await update.message.reply_text("An error occurred while processing your request.")
 
-async def filter_incomes(user_data: int, period: str = None, category: str = None) -> list:
+
+async def filter_incomes(user_id: int, period: str = None, category: str = None) -> list:
+    user_data = load_user_data(user_id)
     incomes = user_data.get("incomes", [])
+
+    for inc in incomes:
+        inc['date'] = datetime.fromisoformat(inc['date'].replace('#',' '))
+
     if period:
         today = datetime.now()
         if period == 'day':
@@ -178,23 +204,25 @@ async def filtered_incomes(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
     period = context.args[0] if context.args else None
     category = context.args[1] if len(context.args) > 1 else None
-    filtered_incomes = filter_incomes(period, category)
-    await display_incomes(update, context, filtered_incomes)
+    filtered_incomes_result = await filter_incomes(user_id, period, category)
+    await display_incomes(update, context, filtered_incomes_result)
 
 async def stats_incomes(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
-    user_data = load_user_data(user_id)
-    filtered_incomes = filter_incomes(user_data)
-    total_incomes = sum([income['amount'] for income in filtered_incomes])
-    message = f"Total incomes: {total_incomes}\n"
-    income_categories = {}
-    for income in filtered_incomes:
-        income_categories[income['category']] = income_categories.get(income['category'], 0) + income['amount']
-    message += "Income Categories:\n"
-    for category, amount in income_categories.items():
-        message += f"{category}: {amount}\n"
-    await update.message.reply_text(message)
-
+    try:
+        filtered_incomes_res = await filter_incomes(user_id)
+        total_incomes = sum([income['amount'] for income in filtered_incomes_res])
+        message = f"Total Incomes: {total_incomes}\n"
+        income_categories = {}
+        for income in filtered_incomes_res:
+            income_categories[income['category']] = income_categories.get(income['category'], 0) + income['amount']
+        message += "Income Categories:\n"
+        for category, amount in income_categories.items():
+            message += f"{category}: {amount}\n"
+        await update.message.reply_text(message)
+    except Exception as e:
+        logging.error(f"Error in stats_incomes: {e}")
+        await update.message.reply_text("An error occurred while processing your request.")
 
 async def remove_expence(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
@@ -205,6 +233,7 @@ async def remove_expence(update: Update, context: CallbackContext) -> None:
     try:
         remove_idx = int(context.args[0]) - 1
         record = user_data["expenses"].pop(remove_idx)
+        save_user_data(user_id, user_data)
         await update.message.reply_text(f"Expense: {record} removed")
     except (ValueError, IndexError):
         await update.message.reply_text("You entered invalid index")
@@ -218,6 +247,7 @@ async def remove_income(update: Update, context: CallbackContext) -> None:
     try:
         remove_idx = int(context.args[0]) - 1
         record = user_data["incomes"].pop(remove_idx)
+        save_user_data(user_id, user_data)
         await update.message.reply_text(f"Income: {record} removed")
     except (ValueError, IndexError):
         await update.message.reply_text("You entered invalid index")
